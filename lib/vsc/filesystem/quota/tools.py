@@ -1,5 +1,5 @@
 #
-# Copyright 2015-2020 Ghent University
+# Copyright 2015-2021 Ghent University
 #
 # This file is part of vsc-filesystems-quota,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -387,7 +387,7 @@ def map_uids_to_names():
     return d
 
 
-def process_inodes_information(filesets, quota, threshold=0.9):
+def process_inodes_information(filesets, quota, threshold=0.9, storage='gpfs'):
     """
     Determines which filesets have reached a critical inode limit.
 
@@ -399,8 +399,8 @@ def process_inodes_information(filesets, quota, threshold=0.9):
     critical_filesets = dict()
 
     for (fs_key, fs_info) in filesets.items():
-        allocated = int(fs_info['allocInodes'])
-        maxinodes = int(fs_info['maxInodes'])
+        allocated = int(fs_info['allocInodes']) if storage == 'gpfs' else 0
+        maxinodes = int(fs_info['maxInodes']) if storage == 'gpfs' else int(quota[fs_key][0].filesLimit)
         used = int(quota[fs_key][0].filesUsage)
 
         if maxinodes > 0 and used > threshold * maxinodes:
