@@ -74,7 +74,7 @@ def main():
         elif backend == 'lustre':
             storage_backend = LustreOperations()
         else:
-            logger.exception("Backend %s not supported" % backend)
+            logger.exception("Backend %s not supported", backend)
 
         quota = storage_backend.list_quota()
 
@@ -90,12 +90,12 @@ def main():
                 zipfile.write(json.dumps(quota[key]))
                 zipfile.close()
                 stats["%s_quota_log" % (key,)] = 0
-                logger.info("Stored quota information for FS %s" % (key))
+                logger.info("Stored quota information for FS %s", key)
             except Exception:
                 stats["%s_quota_log" % (key,)] = 1
-                logger.exception("Failed storing quota information for FS %s" % (key))
+                logger.exception("Failed storing quota information for FS %s", key)
     except Exception:
-        logger.exception("Failure obtaining %s quota" % backend)
+        logger.exception("Failure obtaining %s quota", backend)
         opts.critical("Failure to obtain %s quota information" % backend)
 
     opts.epilogue("Logged %s quota" % backend, stats)
