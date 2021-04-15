@@ -88,7 +88,7 @@ def main():
                 filename = "%s_inodes_%s_%s.gz" % (backend, time.strftime("%Y%m%d-%H:%M"), filesystem)
                 path = os.path.join(opts.options.location, filename)
                 zipfile = gzip.open(path, 'wb', 9)  # Compress to the max
-                zipfile.write(json.dumps(filesets[filesystem]))
+                zipfile.write(json.dumps(filesets[filesystem]).encode())
                 zipfile.close()
                 stats["%s_inodes_log" % (filesystem,)] = 0
                 logger.info("Stored inodes information for FS %s", filesystem)
