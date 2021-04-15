@@ -87,7 +87,7 @@ def main():
                 filename = "%s_quota_%s_%s.gz" % (backend, time.strftime("%Y%m%d-%H:%M"), key)
                 path = os.path.join(opts.options.location, filename)
                 zipfile = gzip.open(path, 'wb', 9)  # Compress to the max
-                zipfile.write(json.dumps(quota[key]))
+                zipfile.write(json.dumps(quota[key]).encode())
                 zipfile.close()
                 stats["%s_quota_log" % (key,)] = 0
                 logger.info("Stored quota information for FS %s" % (key))
