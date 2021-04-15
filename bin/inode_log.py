@@ -72,7 +72,7 @@ def main():
         elif backend == 'lustre':
             storage_backend = LustreOperations()
         else:
-            logger.exception("Backend %s not supported" % backend)
+            logger.exception("Backend %s not supported", backend)
 
         filesets = storage_backend.list_filesets()
         quota = storage_backend.list_quota()
@@ -91,26 +91,26 @@ def main():
                 zipfile.write(json.dumps(filesets[filesystem]).encode())
                 zipfile.close()
                 stats["%s_inodes_log" % (filesystem,)] = 0
-                logger.info("Stored inodes information for FS %s" % (filesystem))
+                logger.info("Stored inodes information for FS %s", filesystem)
 
                 cfs = process_inodes_information(filesets[filesystem], quota[filesystem]['FILESET'],
-                        threshold=0.9, storage=backend)
-                logger.info("Processed inodes information for filesystem %s" % (filesystem,))
+                                                 threshold=0.9, storage=backend)
+                logger.info("Processed inodes information for filesystem %s", filesystem)
                 if cfs:
                     critical_filesets[filesystem] = cfs
-                    logger.info("Filesystem %s has at least %d filesets reaching the limit" % (filesystem, len(cfs)))
+                    logger.info("Filesystem %s has at least %d filesets reaching the limit", filesystem, len(cfs))
 
             except Exception:
                 stats["%s_inodes_log" % (filesystem,)] = 1
-                logger.exception("Failed storing inodes information for FS %s" % (filesystem))
+                logger.exception("Failed storing inodes information for FS %s", filesystem)
 
-        logger.info("Critical filesets: %s" % (critical_filesets,))
+        logger.info("Critical filesets: %s", critical_filesets)
 
         if critical_filesets:
             mail_admins(critical_filesets, dry_run=opts.options.dry_run, host_institute=opts.options.host_institute)
 
     except Exception:
-        logger.exception("Failure obtaining %s inodes" % backend)
+        logger.exception("Failure obtaining %s inodes", backend)
         opts.critical("Failure to obtain %s inodes information" % backend)
 
     opts.epilogue("Logged %s inodes" % backend, stats)
