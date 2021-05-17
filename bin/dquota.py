@@ -69,7 +69,7 @@ def main():
     try:
         client = AccountpageClient(token=opts.options.access_token)
 
-        user_id_map = map_uids_to_names()  # is this really necessary?
+        user_id_map = dict()
         gpfs = GpfsOperations()
         storage = VscStorage()
 

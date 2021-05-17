@@ -202,8 +202,9 @@ def process_user_quota(storage, gpfs, storage_name, filesystem, quota_map, user_
             if user_institute != institute:
                 continue
 
-            user_name = user_map.get(int(user_id), None)
-            if not user_name:
+            try:
+                user_name = pwd.getpwuid(int(user_id))
+            except KeyError:
                 continue
 
             fileset_name = path_template['user'](user_name)[1]
