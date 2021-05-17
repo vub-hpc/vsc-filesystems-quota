@@ -47,19 +47,6 @@ class TestAuxiliary(TestCase):
     """
     Stuff that does not belong anywhere else :)
     """
-
-    @mock.patch('vsc.filesystem.quota.tools.pwd.getpwall')
-    def test_map_uids_to_names(self, mock_getpwall):
-        """
-        Check that the remapping functions properly
-        """
-        uids = [(1, 2, 3), (4, 5, 6), (7, 8, 9)]
-
-        mock_getpwall.return_value = uids
-        res = tools.map_uids_to_names()
-
-        self.assertEqual(res, {3: 1, 6: 4, 9: 7})
-
     def test_determine_grace_period(self):
         """
         Check the determine_grace_period function
@@ -74,7 +61,8 @@ class TestAuxiliary(TestCase):
 class TestProcessing(TestCase):
 
     @mock.patch.object(DjangoPusher, 'push_quota')
-    def test_process_user_quota_no_store(self, mock_django_pusher):
+    @mock.patch('vsc.filesystem.quota.tools.getpwuid')
+    def test_process_user_quota_no_store(self, mock_getpwuid, mock_django_pusher):
 
         storage_name = VSC_DATA
         item = 'vsc40075'
@@ -95,6 +83,8 @@ class TestProcessing(TestCase):
             2540075: 'vsc40075',
             2510042: 'vsc10042',
         }
+
+        mock_getpwuid.side_effect=lambda k: user_map.get(k, None)
 
         tools.process_user_quota(
             storage, None, storage_name, None, quota_map, user_map, client, dry_run=False, institute=GENT

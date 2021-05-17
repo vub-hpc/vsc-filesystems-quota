@@ -40,7 +40,7 @@ Script to check for quota transgressions and notify the offending users.
 from vsc.accountpage.client import AccountpageClient
 from vsc.config.base import VscStorage, GENT
 from vsc.filesystem.gpfs import GpfsOperations
-from vsc.filesystem.quota.tools import get_mmrepquota_maps, map_uids_to_names
+from vsc.filesystem.quota.tools import get_mmrepquota_maps
 from vsc.filesystem.quota.tools import process_user_quota, process_fileset_quota
 from vsc.utils.script_tools import ExtendedSimpleOption
 
