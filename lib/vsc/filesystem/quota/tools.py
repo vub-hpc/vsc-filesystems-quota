@@ -31,12 +31,12 @@ Helper functions for all things quota related.
 """
 
 import logging
-import pwd
 import re
 import socket
 import time
 
 from collections import namedtuple
+from pwd import getpwuid, getpwall
 
 from vsc.config.base import (
     GENT, STORAGE_SHARED_SUFFIX, VO_PREFIX_BY_SITE, VO_SHARED_PREFIX_BY_SITE,
@@ -204,7 +204,10 @@ def process_user_quota(storage, gpfs, storage_name, filesystem, quota_map, user_
 
             user_name = user_map.get(int(user_id), None)
             if not user_name:
-                continue
+                try:
+                    user_name = getpwuid(int(user_id))
+                except KeyError:
+                    continue
 
             fileset_name = path_template['user'](user_name)[1]
 
@@ -380,7 +383,7 @@ def process_fileset_quota(storage, gpfs, storage_name, filesystem, quota_map, cl
 
 def map_uids_to_names():
     """Determine the mapping between user ids and user names."""
-    ul = pwd.getpwall()
+    ul = getpwall()
     d = {}
     for u in ul:
         d[u[2]] = u[0]
