@@ -36,7 +36,7 @@ import socket
 import time
 
 from collections import namedtuple
-from pwd import getpwuid
+from pwd import getpwuid, getpwall
 
 from vsc.config.base import (
     GENT, STORAGE_SHARED_SUFFIX, VO_PREFIX_BY_SITE, VO_SHARED_PREFIX_BY_SITE,
@@ -187,7 +187,6 @@ def process_user_quota(storage, gpfs, storage_name, filesystem, quota_map, user_
     """
     del filesystem
     del gpfs
-    del user_map
 
     exceeding_users = []
     path_template = storage.path_templates[institute][storage_name]
@@ -203,10 +202,12 @@ def process_user_quota(storage, gpfs, storage_name, filesystem, quota_map, user_
             if user_institute != institute:
                 continue
 
-            try:
-                user_name = getpwuid(int(user_id))
-            except KeyError:
-                continue
+            user_name = user_map.get(int(user_id), None)
+            if not user_name:
+                try:
+                    user_name = getpwuid(int(user_id))
+                except KeyError:
+                    continue
 
             fileset_name = path_template['user'](user_name)[1]
 
@@ -378,6 +379,16 @@ def process_fileset_quota(storage, gpfs, storage_name, filesystem, quota_map, cl
                 exceeding_filesets.append((fileset_name, quota))
 
     return exceeding_filesets
+
+
+def map_uids_to_names():
+    """Determine the mapping between user ids and user names."""
+    ul = getpwall()
+    d = {}
+    for u in ul:
+        d[u[2]] = u[0]
+    return d
+
 
 def process_inodes_information(filesets, quota, threshold=0.9, storage='gpfs'):
     """

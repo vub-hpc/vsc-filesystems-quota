@@ -47,6 +47,18 @@ class TestAuxiliary(TestCase):
     """
     Stuff that does not belong anywhere else :)
     """
+    @mock.patch('vsc.filesystem.quota.tools.getpwall')
+    def test_map_uids_to_names(self, mock_getpwall):
+        """
+        Check that the remapping functions properly
+        """
+        uids = [(1, 2, 3), (4, 5, 6), (7, 8, 9)]
+
+        mock_getpwall.return_value = uids
+        res = tools.map_uids_to_names()
+
+        self.assertEqual(res, {3: 1, 6: 4, 9: 7})
+
     def test_determine_grace_period(self):
         """
         Check the determine_grace_period function
