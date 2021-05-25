@@ -205,7 +205,7 @@ def process_user_quota(storage, gpfs, storage_name, filesystem, quota_map, user_
             user_name = user_map.get(int(user_id), None)
             if not user_name:
                 try:
-                    user_name = getpwuid(int(user_id))
+                    user_name = getpwuid(int(user_id)).pw_name
                 except KeyError:
                     continue
 
