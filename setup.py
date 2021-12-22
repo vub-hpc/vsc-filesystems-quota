@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 # #
-# Copyright 2014-2014 Ghent University
+# Copyright 2014-2021 Ghent University
 #
 # This file is part of vsc-filesystems-quota,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
@@ -17,13 +17,14 @@
 vsc-filesystems-quota base distribution setup.py
 
 @author: Stijn De Weirdt (Ghent University)
+@author: Kenneth Waegeman (Ghent University)
 @author: Andy Georges (Ghent University)
 """
 import vsc.install.shared_setup as shared_setup
 from vsc.install.shared_setup import ag
 
 PACKAGE = {
-    'version': '1.1.5',
+    'version': '1.2.0',
     'author': [ag],
     'maintainer': [ag],
     'excluded_pkgs_rpm': ['vsc', 'vsc.filesystem', 'vsc.filesystem.quota'],
@@ -32,7 +33,7 @@ PACKAGE = {
         'vsc-accountpage-clients >= 2.0.0',
         'vsc-base >= 3.0.6',
         'vsc-config >= 3.0.1',
-        'vsc-filesystems >= 1.2.11',
+        'vsc-filesystems >= 1.2.17',
         'vsc-utils >= 2.0.0',
     ],
     'tests_require': ['mock'],
