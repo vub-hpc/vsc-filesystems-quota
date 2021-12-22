@@ -37,7 +37,7 @@ This can be changed by using the project option
 """
 from __future__ import print_function
 from vsc.utils.script_tools import SimpleOption
-from vsc.filesystem.lustre import LustreOperations,Typ2Opt
+from vsc.filesystem.lustre import LustreOperations
 
 import os
 import grp
@@ -51,7 +51,7 @@ def main():
     }
     opts = SimpleOption(options)
 
-    projects=[]
+    projects = []
     if opts.options.projects:
         names = opts.options.projects
         for grname in names:
