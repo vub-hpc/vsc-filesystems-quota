@@ -27,7 +27,11 @@
 #
 """
 Client-side script to gather quota information stored for the user on lustre and
-display it in an understandable format. All quota is supposed to be set on projects
+display it in an understandable format. All quota is on projects.
+
+User quota is the quota on the user fileset/project
+By default, all project quota that match the DODRIO_PROJECT_PREFIX will be shown
+This can be changed by using the project option
 
 @author: Kenneth Waegeman (Ghent University)
 """
@@ -43,7 +47,7 @@ DODRIO_PROJECT_PREFIX = 'gpr_compute'
 def main():
 
     options = {
-        'projects': ("(Only) return quota for these projects (full group names)", "strlist", "store", []),
+        'projects': ("(Only) return quota for these projects (full group names)", "strlist", "store", [], 'p'),
     }
     opts = SimpleOption(options)
 
