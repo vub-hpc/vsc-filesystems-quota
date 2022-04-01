@@ -70,49 +70,48 @@ class InlodeLog(CLI):
         stats = {}
 
         backend = self.options.backend
-        try:
-            if backend == 'gpfs':
-                storage_backend = GpfsOperations()
-            elif backend == 'lustre':
-                storage_backend = LustreOperations()
-            else:
-                logging.error("Backend %s not supported", backend)
-                raise
+        if backend == 'gpfs':
+            storage_backend = GpfsOperations()
+        elif backend == 'lustre':
+            storage_backend = LustreOperations()
+        else:
+            logging.error("Backend %s not supported", backend)
+            raise
 
-            filesets = storage_backend.list_filesets()
-            quota = storage_backend.list_quota()
+        filesets = storage_backend.list_filesets()
+        quota = storage_backend.list_quota()
 
-            if not os.path.exists(self.options.location):
-                os.makedirs(self.options.location, 0o755)
+        if not os.path.exists(self.options.location):
+            os.makedirs(self.options.location, 0o755)
 
-            critical_filesets = dict()
+        critical_filesets = dict()
 
-            for filesystem in filesets:
-                stats["%s_inodes_log_critical" % (filesystem,)] = INODE_STORE_LOG_CRITICAL
-                try:
-                    filename = "%s_inodes_%s_%s.gz" % (backend, time.strftime("%Y%m%d-%H:%M"), filesystem)
-                    path = os.path.join(self.options.location, filename)
-                    zipfile = gzip.open(path, 'wb', 9)  # Compress to the max
-                    zipfile.write(json.dumps(filesets[filesystem]).encode())
-                    zipfile.close()
-                    stats["%s_inodes_log" % (filesystem,)] = 0
-                    logging.info("Stored inodes information for FS %s", filesystem)
+        for filesystem in filesets:
+            stats["%s_inodes_log_critical" % (filesystem,)] = INODE_STORE_LOG_CRITICAL
+            try:
+                filename = "%s_inodes_%s_%s.gz" % (backend, time.strftime("%Y%m%d-%H:%M"), filesystem)
+                path = os.path.join(self.options.location, filename)
+                zipfile = gzip.open(path, 'wb', 9)  # Compress to the max
+                zipfile.write(json.dumps(filesets[filesystem]).encode())
+                zipfile.close()
+                stats["%s_inodes_log" % (filesystem,)] = 0
+                logging.info("Stored inodes information for FS %s", filesystem)
 
-                    cfs = process_inodes_information(filesets[filesystem], quota[filesystem]['FILESET'],
-                                                    threshold=0.9, storage=backend)
-                    logging.info("Processed inodes information for filesystem %s", filesystem)
-                    if cfs:
-                        critical_filesets[filesystem] = cfs
-                        logging.info("Filesystem %s has at least %d filesets reaching the limit", filesystem, len(cfs))
+                cfs = process_inodes_information(filesets[filesystem], quota[filesystem]['FILESET'],
+                                                threshold=0.9, storage=backend)
+                logging.info("Processed inodes information for filesystem %s", filesystem)
+                if cfs:
+                    critical_filesets[filesystem] = cfs
+                    logging.info("Filesystem %s has at least %d filesets reaching the limit", filesystem, len(cfs))
 
-                except Exception:
-                    stats["%s_inodes_log" % (filesystem,)] = 1
-                    logging.exception("Failed storing inodes information for FS %s", filesystem)
+            except Exception:
+                stats["%s_inodes_log" % (filesystem,)] = 1
+                logging.exception("Failed storing inodes information for FS %s", filesystem)
 
-            logging.info("Critical filesets: %s", critical_filesets)
+        logging.info("Critical filesets: %s", critical_filesets)
 
-            if critical_filesets:
-                mail_admins(critical_filesets, dry_run=self.options.dry_run, host_institute=self.options.host_institute)
+        if critical_filesets:
+            mail_admins(critical_filesets, dry_run=self.options.dry_run, host_institute=self.options.host_institute)
 
 
 if __name__ == '__main__':
