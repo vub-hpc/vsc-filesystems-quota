@@ -44,7 +44,7 @@ from vsc.utils.script_tools import CLI
 
 from vsc.config.base import (
     GENT, STORAGE_SHARED_SUFFIX, VO_PREFIX_BY_SITE, VO_SHARED_PREFIX_BY_SITE,
-    VSC, INSTITUTE_SMTP_SERVER, INSTITUTE_ADMIN_EMAIL
+    VSC, INSTITUTE_ADMIN_EMAIL
 )
 from vsc.filesystem.gpfs import GpfsOperations
 from vsc.filesystem.lustre import LustreOperations
