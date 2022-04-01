@@ -511,5 +511,9 @@ class InodeLog(CLI):
         logging.info("Critical filesets: %s", critical_filesets)
 
         if critical_filesets:
-            self.mail_admins(critical_filesets, dry_run=self.options.dry_run, host_institute=self.options.host_institute)
+            self.mail_admins(
+                critical_filesets,
+                dry_run=self.options.dry_run,
+                host_institute=self.options.host_institute
+            )
 
