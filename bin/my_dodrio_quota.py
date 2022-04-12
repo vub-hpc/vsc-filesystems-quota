@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright 2021-2021 Ghent University
+# Copyright 2021-2022 Ghent University
 #
 # This file is part of vsc-filesystems-quota,
 # originally created by the HPC team of Ghent University (http://ugent.be/hpc/en),
