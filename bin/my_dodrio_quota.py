@@ -54,7 +54,11 @@ def main():
     if opts.options.projects:
         names = opts.options.projects
         for grname in names:
-            projects.append({'name': grname, 'gid' : grp.getgrnam(grname).gr_gid})
+            try:
+                gid = grp.getgrnam(grname).gr_gid
+            except KeyError:
+                gid = grp.getgrnam('%s_%s' % (DODRIO_PROJECT_PREFIX, grname)).gr_gid
+            projects.append({'name': grname, 'gid' : gid})
 
     else:
         mygroups = os.getgroups()
