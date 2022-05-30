@@ -46,8 +46,7 @@ from vsc.config.base import (
     GENT, STORAGE_SHARED_SUFFIX, VO_PREFIX_BY_SITE, VO_SHARED_PREFIX_BY_SITE,
     VSC, INSTITUTE_ADMIN_EMAIL
 )
-from vsc.filesystem.gpfs import GpfsOperations
-from vsc.filesystem.lustre import LustreOperations
+from vsc.filesystem.operator import import_operator
 from vsc.filesystem.quota.entities import QuotaUser, QuotaFileset
 from vsc.utils.mail import VscMail
 
@@ -189,13 +188,13 @@ class DjangoPusher(object):
                 raise
 
 
-def process_user_quota(storage, gpfs, storage_name, filesystem, quota_map, user_map, client,
+def process_user_quota(storage, fs_backend, storage_name, filesystem, quota_map, user_map, client,
                        dry_run=False, institute=GENT):
     """
     Wrapper around the new function to keep the old behaviour intact.
     """
     del filesystem
-    del gpfs
+    del fs_backend
 
     exceeding_users = []
     path_template = storage.path_templates[institute][storage_name]
@@ -234,11 +233,10 @@ def process_user_quota(storage, gpfs, storage_name, filesystem, quota_map, user_
     return exceeding_users
 
 
-def get_mmrepquota_maps(quota_map, storage, filesystem, filesets,
-                        replication_factor=1):
+def get_quota_maps(quota_map, storage, storage_name, filesets):
     """Obtain the quota information.
 
-    This function uses vsc.filesystem.gpfs.GpfsOperations to obtain
+    This function uses the storage backend operator to obtain
     quota information for all filesystems known to the storage.
 
     The returned dictionaries contain all information on a per user
@@ -246,42 +244,47 @@ def get_mmrepquota_maps(quota_map, storage, filesystem, filesets,
     quota settings across different filesets are processed correctly.
 
     Returns { "USR": user dictionary, "FILESET": fileset dictionary}.
-
-    @type replication_factor: int, describing the number of copies the FS holds for each file
-    @type metadata_replication_factor: int, describing the number of copies the FS metadata holds for each file
     """
     user_map = {}
     fs_map = {}
 
     timestamp = int(time.time())
 
+    filesystem = storage[storage_name].filesystem
+    replication_factor = storage[storage_name].data_replication_factor
+    fs_backend = storage[storage_name].backend_operator
+
     logging.info("ordering USR quota for storage %s", storage)
-    # Iterate over a list of named tuples -- GpfsQuota
-    for (user, gpfs_quota) in quota_map['USR'].items():
-        user_quota = user_map.get(user, QuotaUser(storage, filesystem, user))
+    # Iterate over a list of named tuples -- StorageQuota
+    quota_type = fs_backend.quota_types.USR.value
+    for (user, storage_quota) in quota_map[quota_type].items():
+        user_quota = user_map.get(user, QuotaUser(storage_name, filesystem, user))
         user_map[user] = _update_quota_entity(
             filesets,
             user_quota,
             filesystem,
-            gpfs_quota,
+            storage_quota,
             timestamp,
             replication_factor
         )
 
     logging.info("ordering FILESET quota for storage %s", storage)
-    # Iterate over a list of named tuples -- GpfsQuota
-    for (fileset, gpfs_quota) in quota_map['FILESET'].items():
-        fileset_quota = fs_map.get(fileset, QuotaFileset(storage, filesystem, fileset))
+    # Iterate over a list of named tuples -- StorageQuota
+    quota_type = fs_backend.quota_types.FILESET.value
+    for (fileset, storage_quota) in quota_map[quota_type].items():
+        fileset_quota = fs_map.get(fileset, QuotaFileset(storage_name, filesystem, fileset))
         fs_map[fileset] = _update_quota_entity(
             filesets,
             fileset_quota,
             filesystem,
-            gpfs_quota,
+            storage_quota,
             timestamp,
             replication_factor
         )
 
-    return {"USR": user_map, "FILESET": fs_map}
+    user_quota = fs_backend.quota_types.USR.name
+    fileset_quota = fs_backend.quota_types.FILESET.name
+    return {user_quota: user_map, fileset_quota: fs_map}
 
 
 def determine_grace_period(grace_string):
@@ -313,19 +316,22 @@ def determine_grace_period(grace_string):
     return expired
 
 
-def _update_quota_entity(filesets, entity, filesystem, gpfs_quotas, timestamp, replication_factor=1):
+def _update_quota_entity(filesets, entity, filesystem, storage_quotas, timestamp, replication_factor=1):
     """
     Update the quota information for an entity (user or fileset).
 
     @type filesets: string
     @type entity: QuotaEntity instance
     @type filesystem: string
-    @type gpfs_quota: list of GpfsQuota namedtuple instances
+    @type storage_quota: list of StorageQuota namedtuple instances
     @type timestamp: a timestamp, duh. an integer
     @type replication_factor: int, describing the number of copies the FS holds for each file
     """
-    for quota in gpfs_quotas:
-        logging.debug("gpfs_quota = %s", quota)
+    if not isinstance(storage_quotas, list):
+        storage_quotas = [storage_quotas]
+
+    for quota in storage_quotas:
+        logging.debug("StorageQuota = %s", quota)
 
         block_expired = determine_grace_period(quota.blockGrace)
         files_expired = determine_grace_period(quota.filesGrace)
@@ -357,10 +363,11 @@ def _update_quota_entity(filesets, entity, filesystem, gpfs_quotas, timestamp, r
     return entity
 
 
-def process_fileset_quota(storage, gpfs, storage_name, filesystem, quota_map, client, dry_run=False, institute=GENT):
+def process_fileset_quota(storage, fs_backend, storage_name, filesystem, quota_map, client,
+                          dry_run=False, institute=GENT):
     """wrapper around the new function to keep the old behaviour intact"""
     del storage
-    filesets = gpfs.list_filesets()
+    filesets = fs_backend.list_filesets()
     exceeding_filesets = []
 
     logging.info("Logging VO quota to account page")
@@ -470,13 +477,8 @@ class InodeLog(CLI):
         stats = {}
 
         backend = self.options.backend
-        if backend == 'gpfs':
-            storage_backend = GpfsOperations()
-        elif backend == 'lustre':
-            storage_backend = LustreOperations()
-        else:
-            logging.error("Backend %s not supported", backend)
-            raise
+        StorageOperations, _ = import_operator(backend)
+        storage_backend = StorageOperations()
 
         filesets = storage_backend.list_filesets()
         quota = storage_backend.list_quota()
