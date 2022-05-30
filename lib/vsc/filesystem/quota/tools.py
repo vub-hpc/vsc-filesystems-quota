@@ -46,15 +46,9 @@ from vsc.config.base import (
     GENT, STORAGE_SHARED_SUFFIX, VO_PREFIX_BY_SITE, VO_SHARED_PREFIX_BY_SITE,
     VSC, INSTITUTE_ADMIN_EMAIL
 )
-from vsc.filesystem.operator import import_operator
+from vsc.filesystem.operator import load_storage_operator, import_operator
 from vsc.filesystem.quota.entities import QuotaUser, QuotaFileset
 from vsc.utils.mail import VscMail
-
-GPFS_GRACE_REGEX = re.compile(
-    r"(?P<days>\d+)\s*days?|(?P<hours>\d+)\s*hours?|(?P<minutes>\d+)\s*minutes?|(?P<expired>expired)"
-)
-
-GPFS_NOGRACE_REGEX = re.compile(r"none", re.I)
 
 QUOTA_USER_KIND = 'user'
 QUOTA_VO_KIND = 'vo'
@@ -62,9 +56,6 @@ QUOTA_VO_KIND = 'vo'
 NAGIOS_CHECK_INTERVAL_THRESHOLD = (6 * 60 + 5) * 60  # 365 minutes -- little over 6 hours.
 INODE_LOG_ZIP_PATH = '/var/log/quota/inode-zips'
 INODE_STORE_LOG_CRITICAL = 1
-
-class QuotaException(Exception):
-    pass
 
 
 InodeCritical = namedtuple("InodeCritical", ['used', 'allocated', 'maxinodes'])
@@ -233,7 +224,7 @@ def process_user_quota(storage, fs_backend, storage_name, filesystem, quota_map,
     return exceeding_users
 
 
-def get_quota_maps(quota_map, storage, storage_name, filesets):
+def get_quota_maps(storage, storage_name):
     """Obtain the quota information.
 
     This function uses the storage backend operator to obtain
@@ -251,21 +242,22 @@ def get_quota_maps(quota_map, storage, storage_name, filesets):
     timestamp = int(time.time())
 
     filesystem = storage[storage_name].filesystem
-    replication_factor = storage[storage_name].data_replication_factor
-    fs_backend = storage[storage_name].backend_operator
 
-    logging.info("ordering USR quota for storage %s", storage)
+    fs_backend = load_storage_operator(storage[storage_name])
+    quotas = fs_backend.list_quota(devices=filesystem)
+    quota_map = quotas[filesystem]
+
+    logging.info("ordering USR quota for storage %s", storage_name)
     # Iterate over a list of named tuples -- StorageQuota
     quota_type = fs_backend.quota_types.USR.value
     for (user, storage_quota) in quota_map[quota_type].items():
         user_quota = user_map.get(user, QuotaUser(storage_name, filesystem, user))
         user_map[user] = _update_quota_entity(
-            filesets,
             user_quota,
-            filesystem,
+            storage,
+            storage_name,
             storage_quota,
             timestamp,
-            replication_factor
         )
 
     logging.info("ordering FILESET quota for storage %s", storage)
@@ -274,12 +266,11 @@ def get_quota_maps(quota_map, storage, storage_name, filesets):
     for (fileset, storage_quota) in quota_map[quota_type].items():
         fileset_quota = fs_map.get(fileset, QuotaFileset(storage_name, filesystem, fileset))
         fs_map[fileset] = _update_quota_entity(
-            filesets,
             fileset_quota,
-            filesystem,
+            storage,
+            storage_name,
             storage_quota,
             timestamp,
-            replication_factor
         )
 
     user_quota = fs_backend.quota_types.USR.name
@@ -287,57 +278,32 @@ def get_quota_maps(quota_map, storage, storage_name, filesets):
     return {user_quota: user_map, fileset_quota: fs_map}
 
 
-def determine_grace_period(grace_string):
-    grace = GPFS_GRACE_REGEX.search(grace_string)
-    nograce = GPFS_NOGRACE_REGEX.search(grace_string)
-
-    if nograce:
-        expired = (False, None)
-    elif grace:
-        grace = grace.groupdict()
-        grace_time = 0
-        if grace['days']:
-            grace_time = int(grace['days']) * 86400
-        elif grace['hours']:
-            grace_time = int(grace['hours']) * 3600
-        elif grace['minutes']:
-            grace_time = int(grace['minutes']) * 60
-        elif grace['expired']:
-            grace_time = 0
-        else:
-            logging.error("Unprocessed grace groupdict %s (from string %s).",
-                          grace, grace_string)
-            raise QuotaException("Cannot process grace time string")
-        expired = (True, grace_time)
-    else:
-        logging.error("Unknown grace string %s.", grace_string)
-        raise QuotaException("Cannot process grace information (%s)" % grace_string)
-
-    return expired
-
-
-def _update_quota_entity(filesets, entity, filesystem, storage_quotas, timestamp, replication_factor=1):
+def _update_quota_entity(entity, storage, storage_name, storage_quotas, timestamp):
     """
     Update the quota information for an entity (user or fileset).
 
-    @type filesets: string
     @type entity: QuotaEntity instance
-    @type filesystem: string
+    @type storage: VscStorage object
+    @type storage_name: string
     @type storage_quota: list of StorageQuota namedtuple instances
     @type timestamp: a timestamp, duh. an integer
-    @type replication_factor: int, describing the number of copies the FS holds for each file
     """
     if not isinstance(storage_quotas, list):
         storage_quotas = [storage_quotas]
 
+    filesystem = storage[storage_name].filesystem
+    replication_factor = storage[storage_name].data_replication_factor
+
+    fs_backend = load_storage_operator(storage[storage_name])
+    filesets = fs_backend.list_filesets(devices=filesystem)
+
     for quota in storage_quotas:
         logging.debug("StorageQuota = %s", quota)
 
-        block_expired = determine_grace_period(quota.blockGrace)
-        files_expired = determine_grace_period(quota.filesGrace)
+        block_expired, files_expired = fs_backend.determine_grace_periods(quota)
 
         if quota.filesetname:
-            fileset_name = filesets[filesystem][quota.filesetname]['filesetName']
+            fileset_name = fs_backend.get_fileset_name(filesystem, quota.filesetname)
         else:
             fileset_name = None
 
@@ -347,7 +313,7 @@ def _update_quota_entity(filesets, entity, filesystem, storage_quotas, timestamp
         # XXX: We do NOT divide by the metatadata_replication_factor (yet), since we do not
         #      set the inode quota through the account page. As such, we need to have the exact
         #      usage available for the user -- this is the same data reported in ES by gpfsbeat.
-        entity.update(fileset=fileset_name,
+        entity.update(fileset=quota.filesetname,
                       used=int(quota.blockUsage) // replication_factor,
                       soft=int(quota.blockQuota) // replication_factor,
                       hard=int(quota.blockLimit) // replication_factor,
@@ -367,7 +333,7 @@ def process_fileset_quota(storage, fs_backend, storage_name, filesystem, quota_m
                           dry_run=False, institute=GENT):
     """wrapper around the new function to keep the old behaviour intact"""
     del storage
-    filesets = fs_backend.list_filesets()
+    filesets = fs_backend.list_filesets(devices=filesystem)
     exceeding_filesets = []
 
     logging.info("Logging VO quota to account page")
@@ -375,7 +341,7 @@ def process_fileset_quota(storage, fs_backend, storage_name, filesystem, quota_m
 
     with DjangoPusher(storage_name, client, QUOTA_VO_KIND, dry_run) as pusher:
         for (fileset, quota) in quota_map.items():
-            fileset_name = filesets[filesystem][fileset]['filesetName']
+            fileset_name = fs_backend.get_fileset_name(filesystem, fileset)
             logging.debug("Fileset %s quota: %s", fileset_name, quota)
 
             if not fileset_name.startswith(VO_PREFIX_BY_SITE[institute]):

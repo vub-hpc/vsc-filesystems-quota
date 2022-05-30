@@ -89,9 +89,6 @@ def main():
                 logger.error("Non-existent filesystem %s", target_filesystem)
                 continue
 
-            filesets = fs_backend.list_filesets(devices=target_filesystem)
-            logger.debug("Found the following filesets: %s", filesets)
-
             quota = fs_backend.list_quota(devices=target_filesystem)
             user_quota_type = fs_backend.quota_types.USR.name
             fileset_quota_type = fs_backend.quota_types.FILESET.name
@@ -100,12 +97,7 @@ def main():
                 logger.error("No quota defined for storage_name %s [%s]", storage_name, target_filesystem)
                 continue
 
-            quota_storage_map = get_quota_maps(
-                quota[target_filesystem],
-                storage,
-                storage_name,
-                filesets,
-            )
+            quota_storage_map = get_quota_maps(storage, storage_name)
 
             exceeding_filesets[storage_name] = process_fileset_quota(
                 storage, fs_backend, storage_name, target_filesystem, quota_storage_map[fileset_quota_type],

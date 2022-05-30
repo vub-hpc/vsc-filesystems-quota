@@ -37,7 +37,7 @@ import vsc.config.base as config
 
 from vsc.config.base import VSC_DATA, GENT
 from vsc.filesystem.quota.entities import QuotaUser, QuotaFileset, QuotaInformation
-from vsc.filesystem.quota.tools import DjangoPusher, determine_grace_period, QUOTA_USER_KIND
+from vsc.filesystem.quota.tools import DjangoPusher, QUOTA_USER_KIND
 from vsc.install.testing import TestCase
 
 config.STORAGE_CONFIGURATION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'filesystem_info.conf')
@@ -59,15 +59,6 @@ class TestAuxiliary(TestCase):
 
         self.assertEqual(res, {3: 1, 6: 4, 9: 7})
 
-    def test_determine_grace_period(self):
-        """
-        Check the determine_grace_period function
-        """
-        self.assertEqual(determine_grace_period("6 days"), (True, 6 * 86400))
-        self.assertEqual(determine_grace_period("2 hours"), (True, 2 * 3600))
-        self.assertEqual(determine_grace_period("13 minutes"), (True, 13 * 60))
-        self.assertEqual(determine_grace_period("expired"), (True, 0))
-        self.assertEqual(determine_grace_period("none"), (False, None))
 
 
 class TestProcessing(TestCase):
