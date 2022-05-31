@@ -121,6 +121,7 @@ class TestProcessing(TestCase):
         }
         gpfs = mock.MagicMock()
         gpfs.list_filesets.return_value = filesets
+        gpfs.get_fileset_name.return_value = 'gvo00002'
 
         client = mock.MagicMock()
 

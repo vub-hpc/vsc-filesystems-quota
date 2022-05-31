@@ -184,8 +184,8 @@ def process_user_quota(storage, fs_backend, storage_name, filesystem, quota_map,
     """
     Wrapper around the new function to keep the old behaviour intact.
     """
-    del filesystem
     del fs_backend
+    del filesystem
 
     exceeding_users = []
     path_template = storage.path_templates[institute][storage_name]
@@ -250,7 +250,8 @@ def get_quota_maps(storage, storage_name):
     logging.info("ordering USR quota for storage %s", storage_name)
     # Iterate over a list of named tuples -- StorageQuota
     quota_type = fs_backend.quota_types.USR.value
-    for (user, storage_quota) in quota_map[quota_type].items():
+    for (quota_id, storage_quota) in quota_map[quota_type].items():
+        user = fs_backend.get_quota_owner(quota_id, filesystem)
         user_quota = user_map.get(user, QuotaUser(storage_name, filesystem, user))
         user_map[user] = _update_quota_entity(
             user_quota,
@@ -263,9 +264,10 @@ def get_quota_maps(storage, storage_name):
     logging.info("ordering FILESET quota for storage %s", storage)
     # Iterate over a list of named tuples -- StorageQuota
     quota_type = fs_backend.quota_types.FILESET.value
-    for (fileset, storage_quota) in quota_map[quota_type].items():
-        fileset_quota = fs_map.get(fileset, QuotaFileset(storage_name, filesystem, fileset))
-        fs_map[fileset] = _update_quota_entity(
+    for (quota_id, storage_quota) in quota_map[quota_type].items():
+        fileset_id = fs_backend.get_quota_fileset(quota_id, filesystem)
+        fileset_quota = fs_map.get(fileset_id, QuotaFileset(storage_name, filesystem, fileset_id))
+        fs_map[fileset_id] = _update_quota_entity(
             fileset_quota,
             storage,
             storage_name,
@@ -273,9 +275,9 @@ def get_quota_maps(storage, storage_name):
             timestamp,
         )
 
-    user_quota = fs_backend.quota_types.USR.name
-    fileset_quota = fs_backend.quota_types.FILESET.name
-    return {user_quota: user_map, fileset_quota: fs_map}
+    user_label = fs_backend.quota_types.USR.name
+    fileset_label = fs_backend.quota_types.FILESET.name
+    return {user_label: user_map, fileset_label: fs_map}
 
 
 def _update_quota_entity(entity, storage, storage_name, storage_quotas, timestamp):
@@ -295,7 +297,6 @@ def _update_quota_entity(entity, storage, storage_name, storage_quotas, timestam
     replication_factor = storage[storage_name].data_replication_factor
 
     fs_backend = load_storage_operator(storage[storage_name])
-    filesets = fs_backend.list_filesets(devices=filesystem)
 
     for quota in storage_quotas:
         logging.debug("StorageQuota = %s", quota)
@@ -303,7 +304,9 @@ def _update_quota_entity(entity, storage, storage_name, storage_quotas, timestam
         block_expired, files_expired = fs_backend.determine_grace_periods(quota)
 
         if quota.filesetname:
-            fileset_name = fs_backend.get_fileset_name(filesystem, quota.filesetname)
+            # filesetname actually has the fileset ID linked to this fileset/user/group quota
+            # convert to its actual fileset name (e.g. filesetName in GPFS)
+            fileset_name = fs_backend.get_fileset_name(quota.filesetname, filesystem)
         else:
             fileset_name = None
 
@@ -313,7 +316,7 @@ def _update_quota_entity(entity, storage, storage_name, storage_quotas, timestam
         # XXX: We do NOT divide by the metatadata_replication_factor (yet), since we do not
         #      set the inode quota through the account page. As such, we need to have the exact
         #      usage available for the user -- this is the same data reported in ES by gpfsbeat.
-        entity.update(fileset=quota.filesetname,
+        entity.update(fileset=fileset_name,
                       used=int(quota.blockUsage) // replication_factor,
                       soft=int(quota.blockQuota) // replication_factor,
                       hard=int(quota.blockLimit) // replication_factor,
@@ -333,15 +336,15 @@ def process_fileset_quota(storage, fs_backend, storage_name, filesystem, quota_m
                           dry_run=False, institute=GENT):
     """wrapper around the new function to keep the old behaviour intact"""
     del storage
-    filesets = fs_backend.list_filesets(devices=filesystem)
+
     exceeding_filesets = []
 
     logging.info("Logging VO quota to account page")
     logging.debug("Considering the following quota items for pushing: %s", quota_map)
 
     with DjangoPusher(storage_name, client, QUOTA_VO_KIND, dry_run) as pusher:
-        for (fileset, quota) in quota_map.items():
-            fileset_name = fs_backend.get_fileset_name(filesystem, fileset)
+        for (fileset_id, quota) in quota_map.items():
+            fileset_name = fs_backend.get_fileset_name(fileset_id, filesystem)
             logging.debug("Fileset %s quota: %s", fileset_name, quota)
 
             if not fileset_name.startswith(VO_PREFIX_BY_SITE[institute]):
