@@ -216,9 +216,9 @@ def get_quota_maps(storage, operator, storage_name):
     quotas = operator().list_quota(devices=filesystem)
     quota_map = quotas[filesystem]
 
-    logging.info("ordering USR quota for storage %s", storage_name)
-    # Iterate over a list of named tuples -- StorageQuota
     quota_type = operator().quota_types.USR.value
+    logging.info("ordering %s quota for storage %s", quota_type, storage_name)
+    # Iterate over a list of named tuples -- StorageQuota
     for (quota_id, storage_quota) in quota_map[quota_type].items():
         user = operator().get_quota_owner(quota_id, filesystem)
         user_quota = user_map.get(user, QuotaUser(storage_name, filesystem, user))
