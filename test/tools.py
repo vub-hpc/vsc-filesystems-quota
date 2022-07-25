@@ -119,19 +119,21 @@ class TestProcessing(TestCase):
                 }
             }
         }
-        gpfs = mock.MagicMock()
-        gpfs.list_filesets.return_value = filesets
-        gpfs.get_fileset_name.return_value = 'gvo00002'
 
-        client = mock.MagicMock()
+        with mock.patch('vsc.filesystem.operator.StorageOperator') as mock_operator:
+            mock_operator.return_value = mock.MagicMock()
+            mock_operator().list_filesets.return_value = filesets
+            mock_operator().get_fileset_name.return_value = 'gvo00002'
 
-        quota_map = {fileset: quota}
+            client = mock.MagicMock()
 
-        tools.process_fileset_quota(
-            storage, gpfs, storage_name, filesystem, quota_map, client, dry_run=False, institute=GENT
-        )
+            quota_map = {fileset: quota}
 
-        mock_django_pusher.assert_called_once_with('gvo00002', 'gvo00002', quota.quota_map['gvo00002'], shared=False)
+            tools.process_fileset_quota(
+                storage, mock_operator, storage_name, filesystem, quota_map, client, dry_run=False, institute=GENT
+            )
+
+            mock_django_pusher.assert_called_once_with('gvo00002', 'gvo00002', quota.quota_map['gvo00002'], shared=False)
 
     def test_django_pusher(self):
 

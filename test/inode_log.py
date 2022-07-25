@@ -30,7 +30,7 @@ Tests for the inode_log.py script in vsc-filesystem-quota.
 """
 
 from vsc.filesystem.gpfs import StorageQuota
-from vsc.filesystem.quota.tools import InodeCritical, process_inodes_information
+from vsc.filesystem.quota.inodelog import InodeCritical, process_inodes_information
 
 from vsc.install.testing import TestCase
 

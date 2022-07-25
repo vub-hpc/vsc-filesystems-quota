@@ -39,7 +39,7 @@ Script to check for quota transgressions and notify the offending users.
 
 from vsc.accountpage.client import AccountpageClient
 from vsc.config.base import VscStorage, GENT
-from vsc.filesystem.operator import load_storage_operator
+from vsc.filesystem.operator import StorageOperator
 from vsc.filesystem.quota.tools import get_quota_maps
 from vsc.filesystem.quota.tools import process_user_quota, process_fileset_quota, map_uids_to_names
 from vsc.utils.script_tools import ExtendedSimpleOption
@@ -77,34 +77,34 @@ def main():
         stats = {}
 
         for storage_name in opts.options.storage:
-            fs_backend = load_storage_operator(storage[storage_name])
+            operator = StorageOperator(storage[storage_name])
 
-            logger.info("Processing quota for storage_name %s", storage_name)
+            logger.info("Processing quota for storage %s", storage_name)
             target_filesystem = storage[storage_name].filesystem
 
-            filesystems = fs_backend.list_filesystems(device=target_filesystem).keys()
+            filesystems = operator().list_filesystems(device=target_filesystem).keys()
             logger.debug("Found the following filesystems: %s", filesystems)
 
             if target_filesystem not in filesystems:
                 logger.error("Non-existent filesystem %s", target_filesystem)
                 continue
 
-            quota = fs_backend.list_quota(devices=target_filesystem)
-            user_quota_type = fs_backend.quota_types.USR.name
-            fileset_quota_type = fs_backend.quota_types.FILESET.name
+            quota = operator().list_quota(devices=target_filesystem)
+            user_quota_type = operator().quota_types.USR.name
+            fileset_quota_type = operator().quota_types.FILESET.name
 
             if target_filesystem not in quota.keys():
-                logger.error("No quota defined for storage_name %s [%s]", storage_name, target_filesystem)
+                logger.error("No quota defined for storage %s [%s]", storage_name, target_filesystem)
                 continue
 
-            quota_storage_map = get_quota_maps(storage, storage_name)
+            quota_storage_map = get_quota_maps(storage, operator, storage_name)
 
             exceeding_filesets[storage_name] = process_fileset_quota(
-                storage, fs_backend, storage_name, target_filesystem, quota_storage_map[fileset_quota_type],
+                storage, operator, storage_name, target_filesystem, quota_storage_map[fileset_quota_type],
                 client, dry_run=opts.options.dry_run, institute=opts.options.host_institute)
 
             exceeding_users[storage_name] = process_user_quota(
-                storage, fs_backend, storage_name, None, quota_storage_map[user_quota_type],
+                storage, operator, storage_name, None, quota_storage_map[user_quota_type],
                 user_id_map, client, dry_run=opts.options.dry_run, institute=opts.options.host_institute)
 
             stats["%s_fileset_critical" % (storage_name,)] = QUOTA_FILESETS_CRITICAL
