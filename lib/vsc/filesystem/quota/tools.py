@@ -211,15 +211,26 @@ def get_quota_maps(storage, operator, storage_name):
 
     timestamp = int(time.time())
 
+    quota_fileset = operator().quota_types.FILESET.value
+    quota_user = operator().quota_types.USR.value
+
     filesystem = storage[storage_name].filesystem
 
     quotas = operator().list_quota(devices=filesystem)
-    quota_map = quotas[filesystem]
+    quota_map = {
+        # select all fileset quotas
+        quota_fileset: quotas[filesystem][quota_fileset],
+        # select user quotas belonging to VSC users
+        quota_user: {
+            qid: quotas[filesystem][quota_user][qid]
+            for qid in quotas[filesystem][quota_user]
+            if quotas[filesystem][quota_user][qid].ownerName.startswith('vsc')
+        },
+    }
 
-    quota_type = operator().quota_types.USR.value
-    logging.info("ordering %s quota for storage %s", quota_type, storage_name)
+    logging.info("ordering %s quota for storage %s", quota_user, storage_name)
     # Iterate over a list of named tuples -- StorageQuota
-    for (quota_id, storage_quota) in quota_map[quota_type].items():
+    for (quota_id, storage_quota) in quota_map[quota_user].items():
         user = operator().get_quota_owner(quota_id, filesystem)
         user_quota = user_map.get(user, QuotaUser(storage_name, filesystem, user))
         user_map[user] = _update_quota_entity(
@@ -233,8 +244,7 @@ def get_quota_maps(storage, operator, storage_name):
 
     logging.info("ordering FILESET quota for storage %s", storage)
     # Iterate over a list of named tuples -- StorageQuota
-    quota_type = operator().quota_types.FILESET.value
-    for (quota_id, storage_quota) in quota_map[quota_type].items():
+    for (quota_id, storage_quota) in quota_map[quota_fileset].items():
         fileset_id = operator().get_quota_fileset(quota_id, filesystem)
         fileset_quota = fs_map.get(fileset_id, QuotaFileset(storage_name, filesystem, fileset_id))
         fs_map[fileset_id] = _update_quota_entity(
