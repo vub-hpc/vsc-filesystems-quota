@@ -218,14 +218,9 @@ def get_quota_maps(storage, operator, storage_name):
 
     quotas = operator().list_quota(devices=filesystem)
     quota_map = {
-        # select all fileset quotas
+        # select all fileset and user quotas
         quota_fileset: quotas[filesystem][quota_fileset],
-        # select user quotas belonging to VSC users
-        quota_user: {
-            qid: quotas[filesystem][quota_user][qid]
-            for qid in quotas[filesystem][quota_user]
-            if quotas[filesystem][quota_user][qid].ownerName.startswith('vsc')
-        },
+        quota_user: quotas[filesystem][quota_user],
     }
 
     logging.info("ordering %s quota for storage %s", quota_user, storage_name)
