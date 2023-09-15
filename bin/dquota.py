@@ -89,6 +89,7 @@ def main():
                 logger.error("Non-existent filesystem %s", target_filesystem)
                 continue
 
+            quota = operator().list_quota(devices=target_filesystem)
             user_quota_type = operator().quota_types.USR.name
             fileset_quota_type = operator().quota_types.FILESET.name
 
