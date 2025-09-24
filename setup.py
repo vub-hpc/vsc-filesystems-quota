@@ -24,7 +24,7 @@ import vsc.install.shared_setup as shared_setup
 from vsc.install.shared_setup import ag
 
 PACKAGE = {
-    'version': '1.4.3',
+    'version': '1.4.4',
     'author': [ag],
     'maintainer': [ag],
     'excluded_pkgs_rpm': ['vsc', 'vsc.filesystem', 'vsc.filesystem.quota'],
@@ -32,7 +32,7 @@ PACKAGE = {
     'install_requires': [
         'vsc-accountpage-clients >= 2.0.0',
         'vsc-base >= 3.0.6',
-        'vsc-config >= 3.11.0',
+        'vsc-config >= 4.0.0',
         'vsc-filesystems >= 1.3.0',
         'vsc-utils >= 2.0.0',
     ],

@@ -180,7 +180,7 @@ def process_user_quota(storage, operator, storage_name, filesystem, quota_map, u
 
             fileset_name = path_template['user'](user_name)[1]
 
-            fileset_re = '^(vsc[1-4]|%s|%s|%s)' % (VO_PREFIX_BY_SITE[institute],
+            fileset_re = '^(vsc[1-9]|%s|%s|%s)' % (VO_PREFIX_BY_SITE[institute],
                                                    VO_SHARED_PREFIX_BY_SITE[institute],
                                                    fileset_name)
 
